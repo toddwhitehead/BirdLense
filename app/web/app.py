@@ -21,12 +21,17 @@ logging.basicConfig(
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, resources={r"/*": {"origins": [
+    # Get domain from environment variable, default to birdlense.local
+    domain = os.environ.get('BIRDLENSE_DOMAIN', 'birdlense.local')
+    allowed_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://birdlense.local",
-        "http://birdlense.local:80"
-    ]}})
+        f"http://{domain}",
+        f"http://{domain}:80",
+        f"https://{domain}",
+        f"https://{domain}:443"
+    ]
+    CORS(app, resources={r"/*": {"origins": allowed_origins}})
     app.config.from_object('config.Config')
 
     db.init_app(app)

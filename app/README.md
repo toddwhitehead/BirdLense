@@ -37,6 +37,33 @@ Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to flash **Rasp
 
 ## Configuration
 
+### Domain Configuration
+
+By default, BirdLense uses `birdlense.local` as the domain. To use a different domain (e.g., `birdlens.toddlab.cloud`):
+
+1. **Copy the environment template:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env` and set your domain:**
+   ```bash
+   BIRDLENSE_DOMAIN=birdlens.toddlab.cloud
+   NTFY_BASE_URL=http://birdlens.toddlab.cloud:8081
+   ```
+
+3. **Restart the application:**
+   ```bash
+   make stop && make start
+   ```
+
+Alternatively, use the pre-configured toddlab environment:
+```bash
+cp .env.toddlab .env
+```
+
+### Application Settings
+
 Visit the **Settings** page first to configure your location (ZIP code), OpenWeather API key, and optionally a Gemini API key for AI features.
 
 ## Notifications
@@ -44,7 +71,7 @@ Visit the **Settings** page first to configure your location (ZIP code), OpenWea
 Local notifications via bundled ntfy server (nothing shared outside your network):
 
 1. Install ntfy app: [Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) | [iOS](https://apps.apple.com/app/ntfy/id1625396347)
-2. Add server: `http://birdlense.local:8081`, channel: `birdlense`
+2. Add server: `http://your-domain:8081` (e.g., `http://birdlense.local:8081` or `http://birdlens.toddlab.cloud:8081`), channel: `birdlense`
 
 ## Development
 

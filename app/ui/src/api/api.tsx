@@ -20,7 +20,8 @@ import {
 import axios from 'axios';
 
 const useMockData = false; // Set to false to use real API calls
-export const BASE_URL = 'http://birdlense.local';
+// Use environment variable if set, otherwise use window.location for production or default for development
+export const BASE_URL = import.meta.env.VITE_BASE_URL || (import.meta.env.DEV ? 'http://birdlense.local' : `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`);
 export const BASE_API_URL = `${BASE_URL}/api/ui`;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

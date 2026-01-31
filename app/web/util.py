@@ -141,12 +141,14 @@ def update_species_info_from_wiki(sp):
 
 def notify(message, link="live", tags=None):
     if app_config.get('general.enable_notifications'):
+        # Get domain from environment variable, default to birdlense.local
+        domain = os.environ.get('BIRDLENSE_DOMAIN', 'birdlense.local')
         requests.post("http://ntfy/birdlense",
                       data=message.encode(
                           'utf-8'),
                       headers={
                           "Title": "BirdLense",
-                          "Click": f"http://birdlense.local/{link}",
+                          "Click": f"http://{domain}/{link}",
                           "Tags": tags
                       })
 
