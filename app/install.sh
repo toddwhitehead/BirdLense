@@ -5,7 +5,22 @@ set -e
 
 # CHECH PI CAM
 echo -e "\nListing available cameras:"
-camera_list=$(libcamera-hello --list-cameras 2>&1)
+
+# Detect which camera command is available
+# rpicam-hello is used in newer versions of Raspberry Pi OS (Bookworm and later)
+# libcamera-hello is used in older versions
+if command -v rpicam-hello &> /dev/null; then
+    camera_cmd="rpicam-hello"
+elif command -v libcamera-hello &> /dev/null; then
+    camera_cmd="libcamera-hello"
+else
+    echo "ERROR: Neither rpicam-hello nor libcamera-hello command found"
+    echo "Please install libcamera-apps package"
+    exit 1
+fi
+
+echo "Using camera command: $camera_cmd"
+camera_list=$($camera_cmd --list-cameras 2>&1)
 echo "$camera_list"
 if ! echo "$camera_list" | grep -q "Available cameras"; then
     echo "ERROR: Could not list cameras"
