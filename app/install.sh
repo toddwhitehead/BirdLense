@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-# CHECH PI CAM
+# CHECK PI CAM
 echo -e "\nListing available cameras:"
 
 # Detect which camera command is available
