@@ -17,6 +17,8 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile.dev
+    environment:
+      - BIRDLENSE_DOMAIN=${BIRDLENSE_DOMAIN:-birdlense.local}
     volumes:
       - ./web:/app
     command: flask run --host=0.0.0.0 --port=8000 --debug
@@ -25,6 +27,8 @@ services:
     build:
       context: ./ui
       dockerfile: Dockerfile.dev
+    environment:
+      - VITE_BASE_URL=${VITE_BASE_URL:-}
     volumes:
       - /app/node_modules
       - ./ui:/app

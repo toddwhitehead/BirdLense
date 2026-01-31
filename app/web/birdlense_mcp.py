@@ -48,7 +48,9 @@ async def check_mcp(mcp: FastMCP):
 
 if __name__ == "__main__":
     # Client for the BirdLense API
-    client = httpx.AsyncClient(base_url="http://birdlense.local/api/ui")
+    # Get domain from environment variable, default to birdlense.local
+    domain = os.environ.get('BIRDLENSE_DOMAIN', 'birdlense.local')
+    client = httpx.AsyncClient(base_url=f"http://{domain}/api/ui")
 
     # Create the MCP server with custom route maps
     mcp = FastMCP.from_openapi(

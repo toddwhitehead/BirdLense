@@ -19,6 +19,9 @@ info:
     For LLMs: You can use this API to answer questions about bird activity, system status, and configuration, or to automate system management tasks.
 servers:
   - url: http://birdlense.local/api/ui
+    description: Default local server
+  - url: http://birdlens.toddlab.cloud/api/ui
+    description: Production server
 paths:
   /health:
     get:

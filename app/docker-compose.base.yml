@@ -53,6 +53,8 @@ services:
     container_name: birdlense_web
     depends_on:
       - ntfy
+    environment:
+      - BIRDLENSE_DOMAIN=${BIRDLENSE_DOMAIN:-birdlense.local}
     volumes:
       - /proc:/host/proc:ro # Access CPU/memory stats
       - /sys:/host/sys:ro # Access temperature sensors
@@ -63,6 +65,8 @@ services:
   ui:
     image: birdlense_ui:latest
     container_name: birdlense_ui
+    environment:
+      - VITE_BASE_URL=${VITE_BASE_URL:-}
     logging: *default-logging
 
   ntfy:
@@ -74,5 +78,5 @@ services:
       TZ: "America/New_York" # optional: set desired timezone
       NTFY_BEHIND_PROXY: "true"
       NTFY_UPSTREAM_BASE_URL: "https://ntfy.sh"
-      NTFY_BASE_URL: "http://birdlense.local:8081"
+      NTFY_BASE_URL: "${NTFY_BASE_URL:-http://birdlense.local:8081}"
     logging: *default-logging
