@@ -199,7 +199,7 @@ def main():
             video_detections = decision_maker.get_results(
                 frame_processor.tracks)
             audio_detections, spectrogram_path = [], None
-            if video_detections and audio_processor:
+            if video_detections and audio_enabled and audio_processor:
                 audio_detections, spectrogram_path = audio_processor.run(
                     video_output)
                 
