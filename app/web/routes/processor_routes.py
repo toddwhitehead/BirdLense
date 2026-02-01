@@ -1,4 +1,5 @@
 import json
+import time
 from flask import request
 from datetime import datetime, timezone
 from models import ActivityLog, db, BirdFood, Video, Species, VideoSpecies, SpeciesVisit
@@ -11,46 +12,62 @@ def register_routes(app):
     @app.route('/api/processor/videos', methods=['POST'])
     def create_video():
         data = request.json
+        
+        # Validate required fields
+        if not data:
+            return {'error': 'Request body is required'}, 400
+            
         try:
             start_time = datetime.fromisoformat(data.get('start_time'))
             end_time = datetime.fromisoformat(data.get('end_time'))
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             return {'error': f'Invalid datetime format: {e}'}, 400
 
         # Validate required data
         species_list = data.get('species', [])
         if not species_list:
             return {'error': 'Missing species'}, 400
+        
+        # Validate processor version
+        if 'processor_version' not in data:
+            return {'error': 'Missing processor_version'}, 400
 
-        try:
-            # Create video record
-            video = Video(
-                processor_version=data['processor_version'],
-                start_time=start_time,
-                end_time=end_time,
-                video_path=data['video_path'],
-                spectrogram_path=data['spectrogram_path'],
-                **weather_fetcher.fetch()
-            )
-            db.session.add(video)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Create video record
+                video = Video(
+                    processor_version=data['processor_version'],
+                    start_time=start_time,
+                    end_time=end_time,
+                    video_path=data['video_path'],
+                    spectrogram_path=data.get('spectrogram_path'),
+                    **weather_fetcher.fetch()
+                )
+                db.session.add(video)
 
-            # Add active bird foods
-            active_bird_foods = BirdFood.query.filter_by(active=True).all()
-            video.food.extend(active_bird_foods)
+                # Add active bird foods
+                active_bird_foods = BirdFood.query.filter_by(active=True).all()
+                video.food.extend(active_bird_foods)
 
-            # Process all detections
-            visit_processor = VisitProcessor(db, app.logger)
-            visit_processor.process_detections(video, species_list)
+                # Process all detections
+                visit_processor = VisitProcessor(db, app.logger)
+                visit_processor.process_detections(video, species_list)
 
-            # Save everything
-            db.session.commit()
+                # Save everything
+                db.session.commit()
 
-            return {'message': 'Video and associated data inserted successfully.'}, 201
+                return {'message': 'Video and associated data inserted successfully.'}, 201
 
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f'Error processing video: {str(e)}')
-            return {'error': 'Failed to process video'}, 500
+            except Exception as e:
+                db.session.rollback()
+                if attempt < max_retries - 1:
+                    app.logger.warning(f'Database error (attempt {attempt + 1}/{max_retries}): {str(e)}')
+                    time.sleep(0.5 * (attempt + 1))  # Brief backoff
+                    continue
+                else:
+                    app.logger.error(f'Error processing video after {max_retries} attempts: {str(e)}', exc_info=True)
+                    return {'error': 'Failed to process video'}, 500
 
     @app.route('/api/processor/species/active', methods=['PUT'])
     def set_active_species():

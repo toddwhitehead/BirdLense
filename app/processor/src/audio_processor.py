@@ -24,10 +24,21 @@ class AudioProcessor:
 
     def extract_audio(self, video_path):
         temp_path = f"{os.path.splitext(video_path)[0]}_temp.wav"
-        subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'pcm_s16le',
-                        '-ar', str(self.sample_rate), '-ac', '1', '-y', temp_path],
-                       check=True, stderr=subprocess.PIPE)
-        return temp_path
+        try:
+            result = subprocess.run(
+                ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'pcm_s16le',
+                 '-ar', str(self.sample_rate), '-ac', '1', '-y', temp_path],
+                check=True, 
+                stderr=subprocess.PIPE,
+                timeout=300  # 5 minute timeout
+            )
+            return temp_path
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Audio extraction timed out for {video_path}")
+            raise
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Audio extraction failed: {e.stderr.decode()}")
+            raise
 
     def generate_spectrogram(self, ndarray: np.ndarray, sr: int, output_path: str,
                              height_px: int = 256,
@@ -119,10 +130,21 @@ class AudioProcessor:
     def run(self, video_path):
         self.logger.info(f'Processing audio from video "{video_path}"...')
         st = time.time()
+        temp_audio_path = None
 
         try:
+            # Validate video file exists
+            if not os.path.exists(video_path):
+                self.logger.error(f"Video file does not exist: {video_path}")
+                return [], None
+            
             # Extract audio to temporary WAV file
             temp_audio_path = self.extract_audio(video_path)
+            
+            # Validate temp audio file was created
+            if not os.path.exists(temp_audio_path):
+                self.logger.error(f"Temp audio file was not created: {temp_audio_path}")
+                return [], None
 
             recording = Recording(
                 self.analyzer,
@@ -148,18 +170,30 @@ class AudioProcessor:
             # Generate spectrogram if there are audio detections
             spectrogram_path = None
             if merged_detections:
-                spectrogram_path = os.path.join(
-                    os.path.dirname(video_path), f"spectrogram_{self.spectrogram_px_per_sec}.jpg")
-                self.generate_spectrogram(
-                    recording.ndarray, self.sample_rate, spectrogram_path)
+                try:
+                    spectrogram_path = os.path.join(
+                        os.path.dirname(video_path), f"spectrogram_{self.spectrogram_px_per_sec}.jpg")
+                    self.generate_spectrogram(
+                        recording.ndarray, self.sample_rate, spectrogram_path)
+                except Exception as e:
+                    self.logger.error(f"Failed to generate spectrogram: {e}", exc_info=True)
+                    # Continue without spectrogram
 
             self.logger.info(
                 f'Total Audio Processing Time: {(time.time() - st) * 1000:.0f} msec')
 
-            # Cleanup temporary file
-            os.remove(temp_audio_path)
             return merged_detections, spectrogram_path
 
-        except Exception as e:
-            self.logger.error(f'Error processing audio: {e}')
+        except subprocess.TimeoutExpired:
+            self.logger.error('Audio extraction timed out')
             return [], None
+        except Exception as e:
+            self.logger.error(f'Error processing audio: {e}', exc_info=True)
+            return [], None
+        finally:
+            # Cleanup temporary file
+            if temp_audio_path and os.path.exists(temp_audio_path):
+                try:
+                    os.remove(temp_audio_path)
+                except OSError as e:
+                    self.logger.warning(f"Failed to remove temp audio file {temp_audio_path}: {e}")

@@ -1,11 +1,14 @@
 import logging
 import requests
 import os
+import time
 
 
 class API():
-    def __init__(self):
+    def __init__(self, timeout=10, max_retries=3):
         self.logger = logging.getLogger(__name__)
+        self.timeout = timeout
+        self.max_retries = max_retries
 
         # Ensure the API URL base is available
         self.api_url_base = os.environ.get('API_URL_BASE')
@@ -14,19 +17,47 @@ class API():
                 "API_URL_BASE environment variable is not set.")
 
     def _send_request(self, method, endpoint, json_data):
-        """ Helper function to send HTTP requests and handle errors """
+        """ Helper function to send HTTP requests with retries and timeout """
         url = f"{self.api_url_base}/{endpoint}"
-        try:
-            # Directly use requests methods based on method argument
-            response = requests.request(method, url, json=json_data)
+        last_exception = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                # Add timeout to prevent hanging indefinitely
+                response = requests.request(
+                    method, url, json=json_data, timeout=self.timeout
+                )
 
-            # Raise an error if the response status code is not 200 or 201
-            response.raise_for_status()
+                # Raise an error if the response status code is not 200 or 201
+                response.raise_for_status()
 
-            return response
-        except requests.exceptions.RequestException as e:
-            self.logger.error(f"API request failed for {url}: {e}")
-            raise  # Re-raise the exception after logging it
+                return response
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                self.logger.warning(
+                    f"API request timeout (attempt {attempt + 1}/{self.max_retries}) for {url}: {e}"
+                )
+                if attempt < self.max_retries - 1:
+                    # Exponential backoff before retrying
+                    time.sleep(0.5 * (2 ** attempt))
+            except requests.exceptions.ConnectionError as e:
+                last_exception = e
+                self.logger.warning(
+                    f"API connection error (attempt {attempt + 1}/{self.max_retries}) for {url}: {e}"
+                )
+                if attempt < self.max_retries - 1:
+                    # Exponential backoff before retrying
+                    time.sleep(0.5 * (2 ** attempt))
+            except requests.exceptions.RequestException as e:
+                # For other request exceptions, don't retry
+                self.logger.error(f"API request failed for {url}: {e}")
+                raise
+        
+        # All retries exhausted
+        self.logger.error(
+            f"API request failed after {self.max_retries} retries for {url}: {last_exception}"
+        )
+        raise last_exception
 
     def notify_motion(self):
         # No need for try/except here since _send_request handles errors

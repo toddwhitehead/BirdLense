@@ -78,53 +78,83 @@ class VisitProcessor:
         Process all detections for a video and manage visits.
         Returns list of created VideoSpecies records.
         """
+        if not video:
+            self.logger.error("Video object is required")
+            return []
+        
+        if not detections or not isinstance(detections, list):
+            self.logger.warning("No detections provided or invalid format")
+            return []
+            
         video_species_records = []
         visits_to_update = {}  # Map (species_id, start_time) to visit data
 
         # First pass: Process all detections
         for det in detections:
-            species = Species.query.filter_by(name=det['species_name']).first()
-            if not species:
-                self.logger.warn(f'Unknown species "{det["species_name"]}"')
-                continue
+            try:
+                # Validate detection structure
+                if not isinstance(det, dict):
+                    self.logger.warning(f"Invalid detection format: {type(det)}")
+                    continue
+                
+                # Validate required fields
+                required_fields = ['species_name', 'start_time', 'end_time', 'confidence', 'source']
+                missing_fields = [f for f in required_fields if f not in det]
+                if missing_fields:
+                    self.logger.warning(f"Detection missing required fields: {missing_fields}")
+                    continue
+                
+                species = Species.query.filter_by(name=det['species_name']).first()
+                if not species:
+                    self.logger.warn(f'Unknown species "{det["species_name"]}"')
+                    continue
 
-            # Update species info from Wikipedia
-            update_species_info_from_wiki(species)
+                # Update species info from Wikipedia
+                try:
+                    update_species_info_from_wiki(species)
+                except Exception as e:
+                    self.logger.warning(f"Failed to update species info from Wikipedia: {e}")
 
-            if det['source'] == 'video':
-                visit, video_species = self.process_video_detection(
-                    species=species,
-                    video=video,
-                    detection_start=det['start_time'],
-                    detection_end=det['end_time'],
-                    confidence=det['confidence'],
-                    track_id=det.get('track_id'),
-                    frames=det.get('frames')
-                )
-                # Create tuple key from visit attributes
-                visit_key = (visit.species_id, visit.start_time)
-                if visit_key not in visits_to_update:
-                    visits_to_update[visit_key] = {
-                        'visit': visit,
-                        'detections': []
-                    }
-                visits_to_update[visit_key]['detections'].append(video_species)
-                video_species_records.append(video_species)
-            else:  # audio
-                video_species = self.process_audio_detection(
-                    species=species,
-                    video=video,
-                    detection_start=det['start_time'],
-                    detection_end=det['end_time'],
-                    confidence=det['confidence']
-                )
-                if video_species:
+                if det['source'] == 'video':
+                    visit, video_species = self.process_video_detection(
+                        species=species,
+                        video=video,
+                        detection_start=det['start_time'],
+                        detection_end=det['end_time'],
+                        confidence=det['confidence'],
+                        track_id=det.get('track_id'),
+                        frames=det.get('frames')
+                    )
+                    # Create tuple key from visit attributes
+                    visit_key = (visit.species_id, visit.start_time)
+                    if visit_key not in visits_to_update:
+                        visits_to_update[visit_key] = {
+                            'visit': visit,
+                            'detections': []
+                        }
+                    visits_to_update[visit_key]['detections'].append(video_species)
                     video_species_records.append(video_species)
+                else:  # audio
+                    video_species = self.process_audio_detection(
+                        species=species,
+                        video=video,
+                        detection_start=det['start_time'],
+                        detection_end=det['end_time'],
+                        confidence=det['confidence']
+                    )
+                    if video_species:
+                        video_species_records.append(video_species)
+            except Exception as e:
+                self.logger.error(f"Error processing detection: {e}", exc_info=True)
+                continue
 
         # Second pass: Update simultaneous counts for affected visits
         for visit_data in visits_to_update.values():
-            self._update_simultaneous_count(
-                visit_data['visit'], visit_data['detections'])
+            try:
+                self._update_simultaneous_count(
+                    visit_data['visit'], visit_data['detections'])
+            except Exception as e:
+                self.logger.error(f"Error updating simultaneous count: {e}", exc_info=True)
 
         return video_species_records
 

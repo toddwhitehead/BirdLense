@@ -99,12 +99,20 @@ class LLMVerifier:
         if crop is None or crop.size == 0:
             return {'is_plausible': False, 'reasoning': 'Empty image'}
         
+        # Validate species name
+        if not detected_species or not isinstance(detected_species, str):
+            return {'is_plausible': False, 'reasoning': 'Invalid species name'}
+        
         # Increment rate limit counters
         self.calls_this_hour += 1
         self.calls_this_day += 1
         
         try:
-            _, buffer = cv2.imencode('.jpg', crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            # Validate image can be encoded
+            success, buffer = cv2.imencode('.jpg', crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not success:
+                logger.error("Failed to encode image")
+                return {'is_plausible': True, 'reasoning': 'Image encoding failed'}
             
             # Format datetime for the prompt
             dt_str = observation_time.strftime('%Y-%m-%d %H:%M') if observation_time else 'Unknown'
@@ -137,7 +145,8 @@ class LLMVerifier:
             
         except Exception as e:
             logger.error(f"LLM verification failed: {e}")
-            return {'is_plausible': True, 'reasoning': f'Error: {e}'}
+            # Default to accepting detection on error to avoid false negatives
+            return {'is_plausible': True, 'reasoning': f'Error: {str(e)[:100]}'}
     
     def _save_log(self, track_id: int, crop: np.ndarray, detection: dict, result: dict):
         """Save verification to persistent log folder organized by year/month/day."""

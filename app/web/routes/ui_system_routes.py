@@ -22,7 +22,8 @@ def register_routes(app):
                 with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
                     temp = float(f.read().strip()) / 1000.0
                 cpu_temp = round(temp, 1)
-            except:
+            except (FileNotFoundError, ValueError, OSError) as e:
+                app.logger.debug(f"Could not read CPU temperature: {e}")
                 cpu_temp = None
 
             # Memory information

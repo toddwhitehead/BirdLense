@@ -199,6 +199,12 @@ class MediaSource:
     """Manages camera recording and streaming."""
 
     def __init__(self, main_size: tuple = (1280, 720), lores_size: tuple = (640, 480), camera_config: dict = None):
+        # Validate input sizes
+        if not (isinstance(main_size, tuple) and len(main_size) == 2 and all(isinstance(x, int) and x > 0 for x in main_size)):
+            raise ValueError(f"main_size must be a tuple of two positive integers, got: {main_size}")
+        if not (isinstance(lores_size, tuple) and len(lores_size) == 2 and all(isinstance(x, int) and x > 0 for x in lores_size)):
+            raise ValueError(f"lores_size must be a tuple of two positive integers, got: {lores_size}")
+            
         self.frame_queue = multiprocessing.Queue(maxsize=1)
         self.control_queue = multiprocessing.Queue()
         self.process = multiprocessing.Process(
@@ -208,6 +214,8 @@ class MediaSource:
         self.process.start()
 
     def start_recording(self, output: str):
+        if not output:
+            raise ValueError("output path cannot be empty")
         self.control_queue.put(("start", output))
         # capture first frame before proceeding to make sure camera is running
         self.frame_queue.get()
@@ -220,10 +228,29 @@ class MediaSource:
     def capture(self):
         self.control_queue.put(("capture", None))
         image = self.frame_queue.get()
+        if image is None:
+            return None
         # Convert YUV420 (I420 format) from lores stream to BGR for OpenCV
         # Picamera2 uses I420 (Y-U-V planar), not YV12 (Y-V-U), so use COLOR_YUV2BGR_I420
         return cv2.cvtColor(image, cv2.COLOR_YUV2BGR_I420)
 
     def close(self):
-        self.control_queue.put(("exit", None))
-        self.process.join()
+        try:
+            self.control_queue.put(("exit", None))
+            self.process.join(timeout=10)
+            if self.process.is_alive():
+                logging.warning("Recording process did not terminate gracefully, forcing termination")
+                self.process.terminate()
+                self.process.join(timeout=5)
+                if self.process.is_alive():
+                    logging.error("Recording process still alive after terminate, using kill")
+                    self.process.kill()
+                    self.process.join()
+        except Exception as e:
+            logging.error(f"Error during media source cleanup: {e}")
+            try:
+                if self.process.is_alive():
+                    self.process.kill()
+                    self.process.join()
+            except Exception:
+                pass

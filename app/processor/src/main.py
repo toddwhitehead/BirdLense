@@ -37,10 +37,20 @@ def get_output_path():
 def heartbeat():
     api = API()
     id = None
+    retry_delay = 1
+    max_retry_delay = 300  # 5 minutes
+    
     while True:
-        # keep updating activity_log record until restart
-        id = api.activity_log(type='heartbeat', data={"status": "up"}, id=id)
-        time.sleep(60)
+        try:
+            # keep updating activity_log record until restart
+            id = api.activity_log(type='heartbeat', data={"status": "up"}, id=id)
+            retry_delay = 1  # Reset delay on success
+            time.sleep(60)
+        except Exception as e:
+            logging.error(f"Heartbeat failed: {e}. Retrying in {retry_delay}s...")
+            time.sleep(retry_delay)
+            # Exponential backoff with cap
+            retry_delay = min(retry_delay * 2, max_retry_delay)
 
 
 def main():
@@ -157,70 +167,88 @@ def main():
 
     # Main motion detection loop
     while True:
-        if not motion_detector.detect():
-            continue
-        api.notify_motion()
-
-        # Configure video sources
-        output_path = get_output_path()
-        video_output = f"{output_path}/video.mp4"
-
-        media_source.start_recording(video_output)
-
-        logging.info(
-            f'Motion detected. Processing started. Recording video and audio to "{video_output}"')
-        start_time = datetime.now(timezone.utc)
-
-        # Video processing loop
         try:
-            frame_processor.reset()
-            decision_maker.reset()
-            fps_tracker.reset()
-            while True:
-                frame = media_source.capture()
-                if frame is None:
-                    break
-                with fps_tracker:
-                    has_detections = frame_processor.run(frame)
+            if not motion_detector.detect():
+                continue
+            api.notify_motion()
 
-                # Decision making
-                decision_maker.update_has_detections(has_detections)
-                species = decision_maker.decide_species(frame_processor.tracks)
-                if species is not None:
-                    api.notify_species(species)
-                if decision_maker.decide_stop_recording():
-                    break
-            fps_tracker.log_summary()
-        finally:
-            media_source.stop_recording()
-            end_time = datetime.now(timezone.utc)
+            # Configure video sources
+            output_path = get_output_path()
+            video_output = f"{output_path}/video.mp4"
 
-        try:
-            video_detections = decision_maker.get_results(
-                frame_processor.tracks)
-            audio_detections, spectrogram_path = [], None
-            if video_detections and audio_enabled and audio_processor:
-                audio_detections, spectrogram_path = audio_processor.run(
-                    video_output)
-                
-                # LLM validation (if enabled)
-                if llm_verifier:
-                    video_detections = llm_verifier.validate_detections(video_detections, start_time)
-                    
-            # Log summary without best_frame arrays
-            video_summary = [{k: v for k, v in d.items() if k != 'best_frame'} for d in video_detections]
+            media_source.start_recording(video_output)
+
             logging.info(
-                f'Processing stopped. Video Result: {video_summary}; Audio Result: {audio_detections}')
-            if len(video_detections) > 0:
-                api.create_video(video_detections, audio_detections, start_time,
-                                 end_time, video_output, spectrogram_path)
-            else:
-                # no detections, delete folder
-                shutil.rmtree(output_path)
-        except Exception as e:
-            logging.error(e)
+                f'Motion detected. Processing started. Recording video and audio to "{video_output}"')
+            start_time = datetime.now(timezone.utc)
 
-    media_source.close()
+            # Video processing loop
+            try:
+                frame_processor.reset()
+                decision_maker.reset()
+                fps_tracker.reset()
+                while True:
+                    frame = media_source.capture()
+                    if frame is None:
+                        break
+                    with fps_tracker:
+                        has_detections = frame_processor.run(frame)
+
+                    # Decision making
+                    decision_maker.update_has_detections(has_detections)
+                    species = decision_maker.decide_species(frame_processor.tracks)
+                    if species is not None:
+                        api.notify_species(species)
+                    if decision_maker.decide_stop_recording():
+                        break
+                fps_tracker.log_summary()
+            finally:
+                media_source.stop_recording()
+                end_time = datetime.now(timezone.utc)
+
+            try:
+                video_detections = decision_maker.get_results(
+                    frame_processor.tracks)
+                audio_detections, spectrogram_path = [], None
+                if video_detections and audio_enabled and audio_processor:
+                    audio_detections, spectrogram_path = audio_processor.run(
+                        video_output)
+                    
+                    # LLM validation (if enabled)
+                    if llm_verifier:
+                        video_detections = llm_verifier.validate_detections(video_detections, start_time)
+                        
+                # Log summary without best_frame arrays
+                video_summary = [{k: v for k, v in d.items() if k != 'best_frame'} for d in video_detections]
+                logging.info(
+                    f'Processing stopped. Video Result: {video_summary}; Audio Result: {audio_detections}')
+                if len(video_detections) > 0:
+                    api.create_video(video_detections, audio_detections, start_time,
+                                     end_time, video_output, spectrogram_path)
+                else:
+                    # no detections, delete folder
+                    try:
+                        shutil.rmtree(output_path)
+                    except Exception as e:
+                        # Catch broad exception as shutil.rmtree can raise various errors
+                        # (OSError, PermissionError, FileNotFoundError, etc.)
+                        logging.warning(f"Failed to delete empty recording folder {output_path}: {e}")
+            except Exception as e:
+                logging.error(f"Error processing video results: {e}", exc_info=True)
+        except KeyboardInterrupt:
+            logging.info("Received shutdown signal, cleaning up...")
+            break
+        except Exception as e:
+            logging.error(f"Error in main processing loop: {e}", exc_info=True)
+            # Brief sleep before retrying to avoid tight error loop
+            time.sleep(5)
+
+    # Cleanup
+    logging.info("Shutting down media source...")
+    try:
+        media_source.close()
+    except Exception as e:
+        logging.error(f"Error closing media source: {e}")
 
 
 if __name__ == "__main__":
