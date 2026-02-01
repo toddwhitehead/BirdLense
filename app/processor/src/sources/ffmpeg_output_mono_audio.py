@@ -2,6 +2,7 @@ import gc
 import signal
 import subprocess
 import prctl
+import logging
 from picamera2.outputs import Output
 
 
@@ -26,6 +27,8 @@ class FfmpegOutputMonoAudio(Output):
         self.timeout = 1 if audio else None
         self.error_callback = None
         self.needs_pacing = True
+        self.logger = logging.getLogger(__name__)
+        self.audio_enabled = audio  # Track if audio was initially requested
 
     def start(self):
         general_options = ['-loglevel', 'warning', '-y']
@@ -54,8 +57,52 @@ class FfmpegOutputMonoAudio(Output):
         command = ['ffmpeg'] + general_options + audio_input + video_input + \
             audio_codec + video_codec + self.output_filename.split()
 
-        self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
-                                       preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
+        try:
+            self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                           stderr=subprocess.PIPE,
+                                           preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
+            
+            # If audio was requested, verify FFmpeg started successfully
+            if self.audio:
+                # Give FFmpeg a moment to fail if audio device is unavailable
+                import time
+                time.sleep(0.1)
+                
+                # Check if process has already exited
+                poll_result = self.ffmpeg.poll()
+                if poll_result is not None:
+                    # Process exited, likely due to audio device error
+                    stderr_output = self.ffmpeg.stderr.read().decode('utf-8', errors='ignore')
+                    self.logger.warning(f"FFmpeg failed with audio device '{self.audio_device}': {stderr_output}")
+                    self.logger.warning("Retrying video recording without audio...")
+                    
+                    # Retry without audio
+                    self.audio = False
+                    self.timeout = None
+                    command = ['ffmpeg'] + general_options + video_input + video_codec + self.output_filename.split()
+                    self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                                   stderr=subprocess.PIPE,
+                                                   preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
+                    self.logger.info("Successfully started video recording without audio")
+        except Exception as e:
+            self.logger.error(f"Failed to start FFmpeg: {e}")
+            # If audio was requested and failed, try without audio
+            if self.audio_enabled and self.audio:
+                self.logger.warning("Retrying video recording without audio...")
+                try:
+                    self.audio = False
+                    self.timeout = None
+                    command = ['ffmpeg'] + general_options + video_input + video_codec + self.output_filename.split()
+                    self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                                   stderr=subprocess.PIPE,
+                                                   preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
+                    self.logger.info("Successfully started video recording without audio")
+                except Exception as retry_error:
+                    self.logger.error(f"Failed to start FFmpeg even without audio: {retry_error}")
+                    raise
+            else:
+                raise
+                
         super().start()
 
     def stop(self):
