@@ -17,7 +17,7 @@ class VideoFileSource:
         self.main_size = main_size
         self.lores_size = lores_size
         self.out = None
-        self.fourcc = cv2.VideoWriter_fourcc(*'avc1')
+        self.fourcc = cv2.VideoWriter_fourcc(*'H264')
         
         self.source_fps = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
         self.frame_interval = 1.0 / self.source_fps
@@ -29,6 +29,11 @@ class VideoFileSource:
     def start_recording(self, output):
         self.logger.info(f'Start video recording to {output}')
         self.out = cv2.VideoWriter(output, self.fourcc, self.source_fps, self.main_size)
+        if not self.out.isOpened():
+            self.logger.error(f'Failed to open VideoWriter for {output}')
+            self.out = None
+        else:
+            self.logger.info(f'VideoWriter opened successfully for {output}')
         self.frame_count = 0
         self.last_capture_time = None  # Will be set on first capture
 
