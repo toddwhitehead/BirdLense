@@ -93,10 +93,54 @@ make logs
 
 ## Notifications
 
+BirdLense supports two notification methods: ntfy and MQTT. You can enable either or both.
+
+### ntfy (Default)
+
 Local notifications via bundled ntfy server (nothing shared outside your network):
 
 1. Install ntfy app: [Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) | [iOS](https://apps.apple.com/app/ntfy/id1625396347)
 2. Add server: `http://your-domain:8081` (e.g., `http://birdlense.local:8081` or `http://birdlens.toddlab.cloud:8081`), channel: `birdlense`
+
+### MQTT
+
+MQTT notifications can be used with any MQTT broker (Mosquitto, HiveMQ, etc.) and integrated with home automation systems like Home Assistant.
+
+**Configuration:**
+
+1. Open the **Settings** page in the BirdLense web interface
+2. Enable notifications in the **General** section
+3. In the **Notification Services** section:
+   - Enable **MQTT Notifications**
+   - Configure your MQTT broker settings:
+     - **Broker**: MQTT broker address (e.g., `localhost`, `mqtt.example.com`)
+     - **Port**: Broker port (default: `1883`)
+     - **Topic**: Topic to publish to (default: `birdlense/notifications`)
+     - **Username/Password**: Optional authentication credentials
+     - **Use TLS/SSL**: Enable for secure connections
+
+**Notification Payload:**
+
+MQTT notifications are published as JSON:
+```json
+{
+  "title": "BirdLense",
+  "message": "Northern Cardinal Detected",
+  "link": "http://birdlense.local/live",
+  "tags": "bird"
+}
+```
+
+**Home Assistant Integration Example:**
+
+```yaml
+mqtt:
+  sensor:
+    - name: "Bird Feeder"
+      state_topic: "birdlense/notifications"
+      value_template: "{{ value_json.message }}"
+      json_attributes_topic: "birdlense/notifications"
+```
 
 ## Development
 
