@@ -95,7 +95,7 @@ def main():
             'secrets.latitude'), lon=app_config.get('secrets.longitude'), spectrogram_px_per_sec=app_config.get('processor.spectrogram_px_per_sec'))
         regional_species = audio_processor.get_regional_species() + ["Squirrel"]
         logging.info("Audio Processing: ENABLED")
-        logging.info(f"  BirdNET Location: {app_config.get('secrets.latitude')}, {app_config.get('secrets.longitude')}")
+        logging.info(f"  Location: Configured")
         logging.info(f"  Spectrogram Resolution: {app_config.get('processor.spectrogram_px_per_sec')} px/sec")
     else:
         logging.info("Audio Processing: DISABLED")

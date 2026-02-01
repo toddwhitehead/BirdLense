@@ -43,7 +43,8 @@ class AppConfig:
                 base[key] = value
         return base
 
-    def apply_env_overrides(self, config):
+    @staticmethod
+    def apply_env_overrides(config):
         """Apply environment variable overrides to config."""
         logger = logging.getLogger(__name__)
         
