@@ -85,9 +85,9 @@ class FfmpegOutputMonoAudio(Output):
                                                    preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
                     self.logger.info("Successfully started video recording without audio")
         except Exception as e:
-            self.logger.error(f"Failed to start FFmpeg: {e}")
-            # If audio was requested and failed, try without audio
-            if self.audio_enabled and self.audio:
+            # If audio was requested and Popen itself failed, try without audio
+            if self.audio_enabled:
+                self.logger.error(f"Failed to start FFmpeg with audio: {e}")
                 self.logger.warning("Retrying video recording without audio...")
                 try:
                     self.audio = False

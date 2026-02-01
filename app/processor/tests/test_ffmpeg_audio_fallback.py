@@ -46,9 +46,11 @@ class TestFfmpegAudioFallback(unittest.TestCase):
         
         # Verify that second call doesn't include audio parameters
         second_call_args = mock_popen.call_args_list[1][0][0]
-        self.assertNotIn('-f', second_call_args)  # No audio format
-        self.assertNotIn('alsa', second_call_args)  # No ALSA
-        self.assertNotIn('hw:1,0', second_call_args)  # No audio device
+        # Join args to check for the complete audio device specification
+        args_str = ' '.join(second_call_args)
+        self.assertNotIn('alsa', args_str)  # No ALSA
+        self.assertNotIn('hw:1,0', args_str)  # No audio device
+        self.assertNotIn('-ac 1', args_str)  # No audio channel spec
         
         # Verify audio was disabled after fallback
         self.assertFalse(output.audio)
@@ -95,8 +97,9 @@ class TestFfmpegAudioFallback(unittest.TestCase):
         
         # Verify command doesn't include audio parameters
         call_args = mock_popen.call_args[0][0]
-        self.assertNotIn('-f', call_args)  # No audio format
-        self.assertNotIn('alsa', call_args)  # No ALSA
+        args_str = ' '.join(call_args)
+        self.assertNotIn('alsa', args_str)  # No ALSA
+        self.assertNotIn('hw:1,0', args_str)  # No audio device
 
 
 if __name__ == '__main__':
