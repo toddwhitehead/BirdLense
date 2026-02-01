@@ -25,7 +25,7 @@ class FfmpegOutputMonoAudio(Output):
         self.audio_samplerate = audio_samplerate
         self.audio_codec = audio_codec
         self.audio_bitrate = audio_bitrate
-        self.timeout = 1 if audio else None
+        self.timeout = 10  # Give FFmpeg enough time to finalize the video file
         self.error_callback = None
         self.needs_pacing = True
         self.logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class FfmpegOutputMonoAudio(Output):
             # If audio was requested, verify FFmpeg started successfully
             if self.audio:
                 # Give FFmpeg a moment to fail if audio device is unavailable
-                time.sleep(0.1)
+                time.sleep(0.3)
                 
                 # Check if process has already exited
                 poll_result = self.ffmpeg.poll()
@@ -81,7 +81,6 @@ class FfmpegOutputMonoAudio(Output):
                     
                     # Retry without audio
                     self.audio = False
-                    self.timeout = None
                     command = ['ffmpeg'] + general_options + video_input + video_codec + self.output_filename.split()
                     self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
                                                    stderr=subprocess.PIPE,
@@ -94,7 +93,6 @@ class FfmpegOutputMonoAudio(Output):
                 self.logger.warning("Retrying video recording without audio...")
                 try:
                     self.audio = False
-                    self.timeout = None
                     command = ['ffmpeg'] + general_options + video_input + video_codec + self.output_filename.split()
                     self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
                                                    stderr=subprocess.PIPE,
@@ -128,11 +126,19 @@ class FfmpegOutputMonoAudio(Output):
                 else:
                     self.logger.error(f'Video file NOT created: {self.output_filename}')
             except subprocess.TimeoutExpired:
+                self.logger.warning(f'FFmpeg timed out after {self.timeout}s, terminating...')
                 try:
                     self.ffmpeg.terminate()
                     self.ffmpeg.wait()  # Ensure process cleanup
-                except Exception:
-                    pass
+                    # Still check if file was created
+                    import os
+                    if os.path.exists(self.output_filename):
+                        file_size = os.path.getsize(self.output_filename)
+                        self.logger.info(f'Video file created (after timeout): {self.output_filename}, size: {file_size} bytes')
+                    else:
+                        self.logger.error(f'Video file NOT created: {self.output_filename}')
+                except Exception as e:
+                    self.logger.error(f'Error during FFmpeg cleanup: {e}')
             self.ffmpeg = None
             gc.collect()
 
