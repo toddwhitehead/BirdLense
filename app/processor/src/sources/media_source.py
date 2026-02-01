@@ -53,10 +53,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                     output.condition.wait()
                     frame = output.frame
                 self.wfile.write(b'--FRAME\r\n')
-                self.send_header('Content-Type', 'image/jpeg')
-                self.send_header('Content-Length', str(len(frame)))
-                self.end_headers()
+                self.wfile.write(b'Content-Type: image/jpeg\r\n')
+                self.wfile.write(f'Content-Length: {len(frame)}\r\n\r\n'.encode())
                 self.wfile.write(frame)
+                self.wfile.write(b'\r\n')
         except Exception as e:
             logging.warning(f"Client disconnected: {e}")
         finally:
