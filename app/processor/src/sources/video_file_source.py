@@ -1,4 +1,5 @@
 import logging
+import os
 import cv2
 import time
 
@@ -11,13 +12,16 @@ class VideoFileSource:
     - Writes ALL frames to disk (skipped ones too)
     """
 
+    # Codecs to try in order of preference (mp4v is most compatible on Raspberry Pi)
+    CODEC_FALLBACKS = ['mp4v', 'XVID', 'avc1', 'H264']
+
     def __init__(self, video_path, main_size=(1280, 720), lores_size=(640, 640)):
         self.logger = logging.getLogger(__name__)
         self.cap = cv2.VideoCapture(video_path)
         self.main_size = main_size
         self.lores_size = lores_size
         self.out = None
-        self.fourcc = cv2.VideoWriter_fourcc(*'H264')
+        self.output_path = None
         
         self.source_fps = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
         self.frame_interval = 1.0 / self.source_fps
@@ -26,14 +30,48 @@ class VideoFileSource:
         
         self.logger.info(f'VideoFileSource: {self.source_fps} FPS')
 
+    def _try_create_video_writer(self, output, codec):
+        """Try to create a VideoWriter with the given codec and verify it works."""
+        fourcc = cv2.VideoWriter_fourcc(*codec)
+        writer = cv2.VideoWriter(output, fourcc, self.source_fps, self.main_size)
+        
+        if not writer.isOpened():
+            return None
+        
+        # Write a test frame to verify the codec actually works
+        # (some codecs report isOpened=True but fail to write)
+        test_frame = cv2.UMat(self.main_size[1], self.main_size[0], cv2.CV_8UC3)
+        writer.write(test_frame.get())
+        
+        # Check if file was actually written (size > 0)
+        if os.path.exists(output) and os.path.getsize(output) > 0:
+            # Recreate writer to start fresh (without the test frame)
+            writer.release()
+            os.remove(output)
+            writer = cv2.VideoWriter(output, fourcc, self.source_fps, self.main_size)
+            if writer.isOpened():
+                return writer
+        
+        writer.release()
+        if os.path.exists(output):
+            os.remove(output)
+        return None
+
     def start_recording(self, output):
         self.logger.info(f'Start video recording to {output}')
-        self.out = cv2.VideoWriter(output, self.fourcc, self.source_fps, self.main_size)
-        if not self.out.isOpened():
-            self.logger.error(f'Failed to open VideoWriter for {output}')
-            self.out = None
-        else:
-            self.logger.info(f'VideoWriter opened successfully for {output}')
+        self.output_path = output
+        
+        # Try each codec until one works
+        for codec in self.CODEC_FALLBACKS:
+            self.logger.debug(f'Trying codec: {codec}')
+            self.out = self._try_create_video_writer(output, codec)
+            if self.out is not None:
+                self.logger.info(f'VideoWriter opened successfully with codec {codec} for {output}')
+                break
+        
+        if self.out is None:
+            self.logger.error(f'Failed to open VideoWriter for {output} with any codec: {self.CODEC_FALLBACKS}')
+        
         self.frame_count = 0
         self.last_capture_time = None  # Will be set on first capture
 
@@ -42,6 +80,15 @@ class VideoFileSource:
         if self.out is not None:
             self.out.release()
             self.out = None
+        
+        # Verify the file was written
+        if self.output_path and os.path.exists(self.output_path):
+            file_size = os.path.getsize(self.output_path)
+            self.logger.info(f'Video file size: {file_size} bytes, frames written: {self.frame_count}')
+            if file_size == 0:
+                self.logger.error(f'Video file is empty! Codec may not be working correctly.')
+        elif self.output_path:
+            self.logger.error(f'Video file was not created: {self.output_path}')
 
     def capture(self):
         """
