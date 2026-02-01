@@ -156,11 +156,14 @@ def recording_worker(control_queue: multiprocessing.Queue, frame_queue: multipro
 
         if command == "start":
             processor_active = True
+            logging.info(f'Recording worker received START command, output: {data}')
             output = FfmpegOutputMonoAudio(data, audio=True,
                                            audio_samplerate=48000, audio_codec="aac",
                                            audio_bitrate=128000)
             encoder.output = [output]
+            logging.info('Starting H264 encoder with FFmpeg output')
             picam2.start_encoder(encoder, quality=Quality.MEDIUM)
+            logging.info('Encoder started successfully')
             if not recording:
                 picam2.start()
                 recording = True
@@ -168,7 +171,9 @@ def recording_worker(control_queue: multiprocessing.Queue, frame_queue: multipro
             frame_queue.put(picam2.capture_array("lores"))
         elif command == "stop":
             processor_active = False
+            logging.info('Recording worker received STOP command')
             picam2.stop_encoder(encoder)
+            logging.info('Encoder stopped')
             if not active_clients:
                 picam2.stop()
                 recording = False

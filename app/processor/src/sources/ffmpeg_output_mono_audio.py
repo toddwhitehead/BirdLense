@@ -57,6 +57,9 @@ class FfmpegOutputMonoAudio(Output):
 
         command = ['ffmpeg'] + general_options + audio_input + video_input + \
             audio_codec + video_codec + self.output_filename.split()
+        
+        self.logger.info(f'Starting FFmpeg for output: {self.output_filename}')
+        self.logger.debug(f'FFmpeg command: {" ".join(command)}')
 
         try:
             self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE,
@@ -106,11 +109,24 @@ class FfmpegOutputMonoAudio(Output):
         super().start()
 
     def stop(self):
+        self.logger.info(f'Stopping FFmpeg for output: {self.output_filename}')
         super().stop()
         if self.ffmpeg is not None:
             self.ffmpeg.stdin.close()
             try:
                 self.ffmpeg.wait(timeout=self.timeout)
+                # Log FFmpeg stderr for debugging
+                if self.ffmpeg.stderr:
+                    stderr_output = self.ffmpeg.stderr.read().decode('utf-8', errors='ignore')
+                    if stderr_output:
+                        self.logger.debug(f'FFmpeg stderr: {stderr_output}')
+                # Verify file was created
+                import os
+                if os.path.exists(self.output_filename):
+                    file_size = os.path.getsize(self.output_filename)
+                    self.logger.info(f'Video file created: {self.output_filename}, size: {file_size} bytes')
+                else:
+                    self.logger.error(f'Video file NOT created: {self.output_filename}')
             except subprocess.TimeoutExpired:
                 try:
                     self.ffmpeg.terminate()
