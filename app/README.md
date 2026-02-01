@@ -66,6 +66,31 @@ cp .env.toddlab .env
 
 Visit the **Settings** page first to configure your location (ZIP code), OpenWeather API key, and optionally a Gemini API key for AI features.
 
+### Audio Processing Configuration
+
+Audio processing (BirdNET analysis and spectrogram generation) can be enabled or disabled via environment variable. This is useful for improving performance or debugging.
+
+**To disable audio processing:**
+
+1. **Edit your `.env` file (or create one from `.env.example`):**
+   ```bash
+   ENABLE_AUDIO_PROCESSING=false
+   ```
+
+2. **Restart the application:**
+   ```bash
+   make stop && make start
+   ```
+
+**To enable audio processing (default):**
+
+Either set `ENABLE_AUDIO_PROCESSING=true` in `.env` or omit the variable entirely.
+
+When the processor starts, it will log the audio processing status along with other configuration details. Check the logs with:
+```bash
+make logs
+```
+
 ## Notifications
 
 Local notifications via bundled ntfy server (nothing shared outside your network):
