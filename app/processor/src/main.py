@@ -54,13 +54,21 @@ def main():
                         help='Use fake motion detector with motion or not')
     args = parser.parse_args()
 
+    # Log startup configuration
+    logging.info("=" * 80)
+    logging.info("BirdLense Processor Starting")
+    logging.info("=" * 80)
+    
     # Instantiate all helper classes
     api = API()
     if args.fake_motion:
         motion = args.fake_motion.lower() == 'true'
         motion_detector = FakeMotionDetector(motion=motion, wait=10)
+        logging.info(f"Motion Detector: FakeMotionDetector (motion={motion})")
     else:
         motion_detector = PIRMotionDetector()
+        logging.info("Motion Detector: PIRMotionDetector")
+        
     decision_maker = DecisionMaker(max_record_seconds=app_config.get(
         'processor.max_record_seconds'), max_inactive_seconds=app_config.get('processor.max_inactive_seconds'))
     main_size = (app_config.get('camera.video_width'),
@@ -68,9 +76,30 @@ def main():
     camera_config = app_config.get('camera')
     media_source = MediaSource(main_size=main_size, camera_config=camera_config) if not args.input else VideoFileSource(
         args.input, main_size=main_size)
-    audio_processor = AudioProcessor(lat=app_config.get(
-        'secrets.latitude'), lon=app_config.get('secrets.longitude'), spectrogram_px_per_sec=app_config.get('processor.spectrogram_px_per_sec'))
-    regional_species = audio_processor.get_regional_species() + ["Squirrel"]
+    
+    # Log camera configuration
+    logging.info(f"Camera Configuration:")
+    logging.info(f"  Resolution: {main_size[0]}x{main_size[1]}")
+    logging.info(f"  HDR Mode: {camera_config.get('hdr_mode', False)}")
+    logging.info(f"  Focus Mode: {camera_config.get('focus_mode', 'auto')}")
+    if camera_config.get('focus_mode') == 'manual':
+        logging.info(f"  Lens Position: {camera_config.get('lens_position', 'N/A')}")
+    
+    # Initialize audio processor if enabled
+    audio_enabled = app_config.get('processor.enable_audio_processing', True)
+    audio_processor = None
+    regional_species = ["Squirrel"]
+    
+    if audio_enabled:
+        audio_processor = AudioProcessor(lat=app_config.get(
+            'secrets.latitude'), lon=app_config.get('secrets.longitude'), spectrogram_px_per_sec=app_config.get('processor.spectrogram_px_per_sec'))
+        regional_species = audio_processor.get_regional_species() + ["Squirrel"]
+        logging.info("Audio Processing: ENABLED")
+        logging.info(f"  BirdNET Location: {app_config.get('secrets.latitude')}, {app_config.get('secrets.longitude')}")
+        logging.info(f"  Spectrogram Resolution: {app_config.get('processor.spectrogram_px_per_sec')} px/sec")
+    else:
+        logging.info("Audio Processing: DISABLED")
+        
     regional_species = api.set_active_species(regional_species)
 
     # Initialize LLM verifier if API key is configured
@@ -87,6 +116,12 @@ def main():
             longitude=app_config.get('secrets.longitude'),
             log_dir=os.path.join('data', 'llm_verification_logs'),
         )
+        logging.info("LLM Verification: ENABLED")
+        logging.info(f"  Model: {app_config.get('ai.model')}")
+        logging.info(f"  Min Confidence Threshold: {app_config.get('ai.llm_verification.min_confidence')}")
+        logging.info(f"  Rate Limits: {app_config.get('ai.llm_verification.max_calls_per_hour')}/hour, {app_config.get('ai.llm_verification.max_calls_per_day')}/day")
+    else:
+        logging.info("LLM Verification: DISABLED")
 
     # Configure Detection Strategy
     strategy_type = app_config.get('processor.detection_strategy', 'single_stage')
@@ -96,11 +131,22 @@ def main():
             classifier_model_path=app_config.get('processor.models.classifier'),
             regional_species=regional_species
         )
+        logging.info("Detection Strategy: TWO_STAGE")
+        logging.info(f"  Binary Model: {app_config.get('processor.models.binary')}")
+        logging.info(f"  Classifier Model: {app_config.get('processor.models.classifier')}")
     else:
         detection_strategy = SingleStageStrategy(
             model_path=app_config.get('processor.models.single_stage'),
             regional_species=regional_species
         )
+        logging.info("Detection Strategy: SINGLE_STAGE")
+        logging.info(f"  Model: {app_config.get('processor.models.single_stage')}")
+    
+    logging.info(f"Tracker: {app_config.get('processor.tracker')}")
+    logging.info(f"Max Record Duration: {app_config.get('processor.max_record_seconds')}s")
+    logging.info(f"Max Inactive Duration: {app_config.get('processor.max_inactive_seconds')}s")
+    logging.info(f"Regional Species Count: {len(regional_species)}")
+    logging.info("=" * 80)
 
     frame_processor = FrameProcessor(
         detection_strategy=detection_strategy,
@@ -153,7 +199,7 @@ def main():
             video_detections = decision_maker.get_results(
                 frame_processor.tracks)
             audio_detections, spectrogram_path = [], None
-            if video_detections:
+            if video_detections and audio_processor:
                 audio_detections, spectrogram_path = audio_processor.run(
                     video_output)
                 
