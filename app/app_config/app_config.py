@@ -1,5 +1,6 @@
 import yaml
 import os
+import logging
 
 
 class AppConfig:
@@ -25,7 +26,12 @@ class AppConfig:
                 user_config = yaml.safe_load(file) or {}
 
         # Merge configs (user_config overrides default_config)
-        return self.merge_dicts(default_config, user_config)
+        merged = self.merge_dicts(default_config, user_config)
+        
+        # Apply environment variable overrides
+        merged = self.apply_env_overrides(merged)
+        
+        return merged
 
     @staticmethod
     def merge_dicts(base, overrides):
@@ -36,6 +42,41 @@ class AppConfig:
             else:
                 base[key] = value
         return base
+
+    @staticmethod
+    def apply_env_overrides(config):
+        """Apply environment variable overrides to config."""
+        logger = logging.getLogger(__name__)
+        
+        # Map environment variables to config keys
+        env_mappings = {
+            'ENABLE_AUDIO_PROCESSING': 'processor.enable_audio_processing',
+        }
+        
+        for env_var, config_key in env_mappings.items():
+            env_value = os.environ.get(env_var)
+            if env_value is not None:
+                # Convert string to boolean for boolean settings
+                lower_value = env_value.lower()
+                if lower_value in ('true', '1', 'yes'):
+                    value = True
+                elif lower_value in ('false', '0', 'no'):
+                    value = False
+                else:
+                    logger.warning(
+                        f"Invalid boolean value '{env_value}' for {env_var}. "
+                        f"Expected: true/false/1/0/yes/no. Ignoring override."
+                    )
+                    continue
+                
+                # Set the value in config
+                keys = config_key.split('.')
+                config_section = config
+                for k in keys[:-1]:
+                    config_section = config_section.setdefault(k, {})
+                config_section[keys[-1]] = value
+        
+        return config
 
     def get(self, key, default=None):
         keys = key.split('.')

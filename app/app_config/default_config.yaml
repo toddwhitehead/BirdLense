@@ -8,6 +8,7 @@ processor:
   tracker: "bytetrack.yaml"
   max_record_seconds: 60 # maximum length of video/audio recording
   max_inactive_seconds: 10 # maximum number of seconds with no activity before stopping recording
+  enable_audio_processing: true # enable or disable audio processing (BirdNET and spectrogram)
   spectrogram_px_per_sec: 200 # pixels per second in the spectrogram
   included_bird_families: # List of bird families to use in detections
     - "Perching Birds" # Main feeder visitors: finches, cardinals, chickadees, etc.

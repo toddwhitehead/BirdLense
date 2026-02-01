@@ -42,6 +42,7 @@ services:
     environment:
       - API_URL_BASE=http://web:8000/api/processor
       - LD_LIBRARY_PATH=/opt/vc/lib
+      - ENABLE_AUDIO_PROCESSING=${ENABLE_AUDIO_PROCESSING:-true}
     command: python src/main.py
     privileged: true # unfortunately, it's required for picamera2 to access pi camera
     depends_on:
