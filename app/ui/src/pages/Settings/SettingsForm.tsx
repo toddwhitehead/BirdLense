@@ -155,6 +155,203 @@ export const SettingsForm = ({
         </Grid>
       </Grid>
       <Divider sx={{ my: 4 }} />
+      {/* Notification Services Section */}
+      <Typography variant="h5" gutterBottom>
+        Notification Services
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Configure ntfy and MQTT notification services
+      </Typography>
+      <form.Subscribe
+        selector={(state) => [state.values.general.enable_notifications]}
+      >
+        {([notificationsEnabled]) => (
+          <Grid container spacing={2}>
+            {/* Ntfy Configuration */}
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="h6" gutterBottom>
+                Ntfy
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <form.Field name="general.notifications.ntfy.enabled">
+                {(field) => (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          id={field.name}
+                          name={field.name}
+                          checked={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.checked)}
+                          disabled={!notificationsEnabled}
+                        />
+                      }
+                      label="Enable ntfy Notifications"
+                    />
+                    <FormHelperText>
+                      Send notifications via ntfy push service
+                    </FormHelperText>
+                  </>
+                )}
+              </form.Field>
+            </Grid>
+
+            {/* MQTT Configuration */}
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                MQTT
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <form.Field name="general.notifications.mqtt.enabled">
+                {(field) => (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          id={field.name}
+                          name={field.name}
+                          checked={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.checked)}
+                          disabled={!notificationsEnabled}
+                        />
+                      }
+                      label="Enable MQTT Notifications"
+                    />
+                    <FormHelperText>
+                      Send notifications to an MQTT broker
+                    </FormHelperText>
+                  </>
+                )}
+              </form.Field>
+            </Grid>
+            <form.Subscribe
+              selector={(state) => [
+                state.values.general.notifications.mqtt.enabled,
+              ]}
+            >
+              {([mqttEnabled]) => (
+                <>
+                  <Grid size={{ xs: 12, sm: 8 }}>
+                    <form.Field name="general.notifications.mqtt.broker">
+                      {(field) => (
+                        <TextField
+                          fullWidth
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          type="string"
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          label="MQTT Broker"
+                          helperText="Broker address (e.g., localhost, mqtt.example.com)"
+                          disabled={!notificationsEnabled || !mqttEnabled}
+                        />
+                      )}
+                    </form.Field>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <form.Field name="general.notifications.mqtt.port">
+                      {(field) => (
+                        <TextField
+                          fullWidth
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          type="number"
+                          onChange={(e) =>
+                            field.handleChange(Number(e.target.value))
+                          }
+                          label="Port"
+                          helperText="Default: 1883"
+                          disabled={!notificationsEnabled || !mqttEnabled}
+                        />
+                      )}
+                    </form.Field>
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <form.Field name="general.notifications.mqtt.topic">
+                      {(field) => (
+                        <TextField
+                          fullWidth
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          type="string"
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          label="MQTT Topic"
+                          helperText="Topic to publish to (e.g., birdlense/notifications)"
+                          disabled={!notificationsEnabled || !mqttEnabled}
+                        />
+                      )}
+                    </form.Field>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <form.Field name="general.notifications.mqtt.username">
+                      {(field) => (
+                        <TextField
+                          fullWidth
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          type="string"
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          label="MQTT Username"
+                          helperText="Optional username for authentication"
+                          disabled={!notificationsEnabled || !mqttEnabled}
+                        />
+                      )}
+                    </form.Field>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <form.Field name="general.notifications.mqtt.password">
+                      {(field) => (
+                        <TextField
+                          fullWidth
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          type="password"
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          label="MQTT Password"
+                          helperText="Optional password for authentication"
+                          disabled={!notificationsEnabled || !mqttEnabled}
+                        />
+                      )}
+                    </form.Field>
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <form.Field name="general.notifications.mqtt.use_tls">
+                      {(field) => (
+                        <>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                id={field.name}
+                                name={field.name}
+                                checked={field.state.value}
+                                onChange={(e) =>
+                                  field.handleChange(e.target.checked)
+                                }
+                                disabled={!notificationsEnabled || !mqttEnabled}
+                              />
+                            }
+                            label="Use TLS/SSL"
+                          />
+                          <FormHelperText>
+                            Enable secure TLS/SSL connection to broker
+                          </FormHelperText>
+                        </>
+                      )}
+                    </form.Field>
+                  </Grid>
+                </>
+              )}
+            </form.Subscribe>
+          </Grid>
+        )}
+      </form.Subscribe>
+      <Divider sx={{ my: 4 }} />
       {/* Secrets Section */}
       <Typography variant="h5" gutterBottom>
         Location & API Keys

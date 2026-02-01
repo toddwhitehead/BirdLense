@@ -779,6 +779,31 @@ components:
               type: array
               items:
                 type: string
+            notifications:
+              type: object
+              properties:
+                ntfy:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                mqtt:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    broker:
+                      type: string
+                    port:
+                      type: integer
+                    topic:
+                      type: string
+                    username:
+                      type: string
+                    password:
+                      type: string
+                    use_tls:
+                      type: boolean
         processor:
           type: object
           properties:

@@ -1,6 +1,17 @@
 general:
   enable_notifications: false
   notification_excluded_species: []
+  notifications:
+    ntfy:
+      enabled: true
+    mqtt:
+      enabled: false
+      broker: "localhost"
+      port: 1883
+      topic: "birdlense/notifications"
+      username: ""
+      password: ""
+      use_tls: false
 
 # Video/Audio processor settings
 processor:
