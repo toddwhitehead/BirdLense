@@ -152,13 +152,21 @@ def notify(message, link="live", tags=None):
     # Send ntfy notification if enabled
     if app_config.get('general.notifications.ntfy.enabled', True):
         try:
-            requests.post("http://ntfy/birdlense",
-                          data=message.encode('utf-8'),
-                          headers={
-                              "Title": "BirdLense",
-                              "Click": f"http://{domain}/{link}",
-                              "Tags": tags
-                          })
+            response = requests.post(
+                "http://ntfy/birdlense",
+                data=message.encode('utf-8'),
+                headers={
+                    "Title": "BirdLense",
+                    "Click": f"http://{domain}/{link}",
+                    "Tags": tags
+                },
+                timeout=5  # 5 second timeout
+            )
+            response.raise_for_status()
+        except requests.exceptions.Timeout:
+            logging.warning("ntfy notification timed out")
+        except requests.exceptions.ConnectionError:
+            logging.warning("ntfy service unavailable")
         except Exception as e:
             logging.error(f"Failed to send ntfy notification: {e}")
     
@@ -184,7 +192,7 @@ def notify(message, link="live", tags=None):
             if use_tls:
                 client.tls_set()
             
-            # Connect and publish
+            # Connect with timeout
             client.connect(broker, port, 60)
             
             # Create notification payload
@@ -195,9 +203,9 @@ def notify(message, link="live", tags=None):
                 'tags': tags
             }
             
-            # Publish and wait for it to complete
+            # Publish with timeout
             result = client.publish(topic, json.dumps(payload))
-            result.wait_for_publish()
+            result.wait_for_publish(timeout=5)
             client.disconnect()
         except Exception as e:
             logging.error(f"Failed to send MQTT notification: {e}")

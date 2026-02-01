@@ -21,7 +21,13 @@ class FrameProcessor:
     def run(self, img):
         # incoming frame is BGR
         if img is None:
-            raise Exception('Frame is missing')
+            self.logger.warning('Received None frame, skipping')
+            return False
+        
+        if not isinstance(img, np.ndarray) or img.size == 0:
+            self.logger.warning('Received invalid frame, skipping')
+            return False
+            
         self.cnt += 1
         
         # Capture frame timestamp BEFORE processing to account for detection latency
@@ -35,20 +41,27 @@ class FrameProcessor:
         # Detect
         st = time.time()
         
-        # Strategy detect - Returns ONLY valid result objects
-        results = self.strategy.detect(img, self.tracker, min_confidence=0.1) # min_confidence could be config, leaving 0.1 default
+        try:
+            # Strategy detect - Returns ONLY valid result objects
+            results = self.strategy.detect(img, self.tracker, min_confidence=0.1) # min_confidence could be config, leaving 0.1 default
+        except Exception as e:
+            self.logger.error(f"Detection failed: {e}", exc_info=True)
+            return False
         
         if self.save_images and results:
-            debug_img = img.copy()
-            h, w, _ = debug_img.shape
-            for res in results:
-                x1, y1, x2, y2 = res.bbox
-                # Denormalize
-                x1, y1, x2, y2 = int(x1*w), int(y1*h), int(x2*w), int(y2*h)
-                cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(debug_img, f"{res.class_name} {res.confidence:.2f}", (x1, y1 - 10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            cv2.imwrite(f'data/test/frame{str(self.cnt)}.jpg', debug_img)
+            try:
+                debug_img = img.copy()
+                h, w, _ = debug_img.shape
+                for res in results:
+                    x1, y1, x2, y2 = res.bbox
+                    # Denormalize
+                    x1, y1, x2, y2 = int(x1*w), int(y1*h), int(x2*w), int(y2*h)
+                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(debug_img, f"{res.class_name} {res.confidence:.2f}", (x1, y1 - 10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.imwrite(f'data/test/frame{str(self.cnt)}.jpg', debug_img)
+            except Exception as e:
+                self.logger.warning(f"Failed to save debug image: {e}")
 
         if not results:
             self.logger.debug('No detections')
