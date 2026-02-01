@@ -34,7 +34,7 @@ A Raspberry Pi-powered smart bird feeder that uses computer vision and audio rec
 - 📅 Timeline view with video playback and track visualization
 - 📱 Modern Material UI mobile-friendly web interface
 - 🌡️ Weather integration with hourly temperature correlation
-- 🔔 Local push notifications via [ntfy](https://ntfy.sh)
+- 🔔 Push notifications via [ntfy](https://ntfy.sh) and MQTT
 - 🔌 MCP (Model Context Protocol) support for AI agent integrations
 - 🚫 No cloud dependencies, runs completely local
 - 🖨️ Custom 3D printing models for enclosure and feeder

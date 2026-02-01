@@ -3,8 +3,11 @@ from datetime import timedelta, datetime
 import requests
 import re
 import time
+import os
 from app_config.app_config import app_config
 from models import Species, db
+import paho.mqtt.client as mqtt
+import json
 
 
 class WeatherFetcher:
@@ -140,17 +143,64 @@ def update_species_info_from_wiki(sp):
 
 
 def notify(message, link="live", tags=None):
-    if app_config.get('general.enable_notifications'):
-        # Get domain from environment variable, default to birdlense.local
-        domain = os.environ.get('BIRDLENSE_DOMAIN', 'birdlense.local')
-        requests.post("http://ntfy/birdlense",
-                      data=message.encode(
-                          'utf-8'),
-                      headers={
-                          "Title": "BirdLense",
-                          "Click": f"http://{domain}/{link}",
-                          "Tags": tags
-                      })
+    if not app_config.get('general.enable_notifications'):
+        return
+    
+    # Get domain from environment variable, default to birdlense.local
+    domain = os.environ.get('BIRDLENSE_DOMAIN', 'birdlense.local')
+    
+    # Send ntfy notification if enabled
+    if app_config.get('general.notifications.ntfy.enabled', True):
+        try:
+            requests.post("http://ntfy/birdlense",
+                          data=message.encode('utf-8'),
+                          headers={
+                              "Title": "BirdLense",
+                              "Click": f"http://{domain}/{link}",
+                              "Tags": tags
+                          })
+        except Exception as e:
+            logging.error(f"Failed to send ntfy notification: {e}")
+    
+    # Send MQTT notification if enabled
+    if app_config.get('general.notifications.mqtt.enabled', False):
+        try:
+            mqtt_config = app_config.get('general.notifications.mqtt', {})
+            broker = mqtt_config.get('broker', 'localhost')
+            port = mqtt_config.get('port', 1883)
+            topic = mqtt_config.get('topic', 'birdlense/notifications')
+            username = mqtt_config.get('username', '')
+            password = mqtt_config.get('password', '')
+            use_tls = mqtt_config.get('use_tls', False)
+            
+            # Create MQTT client with explicit callback API version
+            client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+            
+            # Set credentials if provided
+            if username:
+                client.username_pw_set(username, password)
+            
+            # Enable TLS if requested
+            if use_tls:
+                client.tls_set()
+            
+            # Connect and publish
+            client.connect(broker, port, 60)
+            
+            # Create notification payload
+            payload = {
+                'title': 'BirdLense',
+                'message': message,
+                'link': f"http://{domain}/{link}",
+                'tags': tags
+            }
+            
+            # Publish and wait for it to complete
+            result = client.publish(topic, json.dumps(payload))
+            result.wait_for_publish()
+            client.disconnect()
+        except Exception as e:
+            logging.error(f"Failed to send MQTT notification: {e}")
 
 
 def filter_feeder_species(species_names):

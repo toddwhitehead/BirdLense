@@ -90,6 +90,20 @@ export interface Settings {
   general: {
     enable_notifications: boolean; // Whether to enable notifications or not
     notification_excluded_species: string[]; // list of species to exclude from notifications
+    notifications: {
+      ntfy: {
+        enabled: boolean; // Whether ntfy notifications are enabled
+      };
+      mqtt: {
+        enabled: boolean; // Whether MQTT notifications are enabled
+        broker: string; // MQTT broker address (e.g., localhost, mqtt.example.com)
+        port: number; // MQTT broker port (default: 1883)
+        topic: string; // MQTT topic to publish to (e.g., birdlense/notifications)
+        username: string; // MQTT username (optional)
+        password: string; // MQTT password (optional)
+        use_tls: boolean; // Whether to use TLS/SSL connection
+      };
+    };
   };
   processor: {
     tracker: string; // Path to tracker config, e.g., "bytetrack.yaml"
