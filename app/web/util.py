@@ -173,8 +173,8 @@ def notify(message, link="live", tags=None):
             password = mqtt_config.get('password', '')
             use_tls = mqtt_config.get('use_tls', False)
             
-            # Create MQTT client
-            client = mqtt.Client()
+            # Create MQTT client with explicit callback API version
+            client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
             
             # Set credentials if provided
             if username:
@@ -195,7 +195,9 @@ def notify(message, link="live", tags=None):
                 'tags': tags
             }
             
-            client.publish(topic, json.dumps(payload))
+            # Publish and wait for it to complete
+            result = client.publish(topic, json.dumps(payload))
+            result.wait_for_publish()
             client.disconnect()
         except Exception as e:
             logging.error(f"Failed to send MQTT notification: {e}")
