@@ -110,6 +110,11 @@ class DecisionMaker():
                 # Only consider species with at least min_track_duration
                 duration = track['end_time'] - track['start_time']
                 if duration >= self.min_track_duration:
+                    logger.info(
+                        f'Track {track_id} ACCEPTED: {species_name} | '
+                        f'confidence: {confidence:.1%} (voting: {voting_confidence:.1%}, avg_cls: {avg_classifier_conf:.1%}) | '
+                        f'duration: {duration:.1f}s | predictions: {len(track["preds"])}'
+                    )
                     result.append({
                         'track_id': track_id,
                         'species_name': species_name,
@@ -120,8 +125,18 @@ class DecisionMaker():
                         'source': 'video',
                         'frames': track.get('frames', [])  # Per-frame bounding box data
                     })
+                else:
+                    logger.debug(
+                        f'Track {track_id} REJECTED (duration): {species_name} | '
+                        f'duration: {duration:.1f}s < min: {self.min_track_duration}s'
+                    )
             except Exception as e:
                 logger.error(f"Error processing track {track_id}: {e}", exc_info=True)
                 continue
+        
+        if result:
+            logger.info(f'Final results: {len(result)} tracks accepted')
+        else:
+            logger.debug(f'No tracks met acceptance criteria (processed {len(tracks)} tracks)')
 
         return result

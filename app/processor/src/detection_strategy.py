@@ -157,14 +157,20 @@ class SingleStageStrategy(DetectionStrategy):
             if is_blur:
                 continue
 
+            class_name = self.model.names[class_idx]
+            self.logger.info(f'Track {track_id}: {class_name} ({conf:.1%}) | blur_var: {blur_variance:.1f}')
+            
             detection_results.append(DetectionResult(
                 track_id=track_id, 
-                class_name=self.model.names[class_idx], 
+                class_name=class_name, 
                 confidence=conf, 
                 bbox=bbox_norm,
                 blur_variance=blur_variance,
                 crop=crop
             ))
+        
+        if detection_results:
+            self.logger.debug(f'Frame summary: {len(detection_results)} detections')
             
         return detection_results
 
@@ -225,6 +231,7 @@ class TwoStageStrategy(DetectionStrategy):
         result_cls = self.classifier_model(crop, verbose=False)
         
         if not result_cls or not result_cls[0].probs:
+            self.logger.debug('Classification returned no results')
             return None, 0.0
             
         probs = result_cls[0].probs
@@ -236,11 +243,28 @@ class TwoStageStrategy(DetectionStrategy):
             
             if valid_probs:
                 best_id, best_conf = max(valid_probs.items(), key=lambda x: x[1])
-                return self._normalize_class_name(result_cls[0].names[best_id]), best_conf
+                species_name = self._normalize_class_name(result_cls[0].names[best_id])
+                
+                # Log top 3 regional species predictions
+                top3 = sorted(valid_probs.items(), key=lambda x: x[1], reverse=True)[:3]
+                top3_str = ', '.join([f"{self._normalize_class_name(result_cls[0].names[cid])}:{conf:.1%}" for cid, conf in top3])
+                self.logger.info(f'Classification result: {species_name} ({best_conf:.1%}) | Top 3: [{top3_str}]')
+                
+                return species_name, best_conf
+            self.logger.debug('No valid regional species found in classification')
             return "Unknown", 0.0
             
         top1_idx = probs.top1
-        return self._normalize_class_name(result_cls[0].names[top1_idx]), probs.top1conf.item()
+        species_name = self._normalize_class_name(result_cls[0].names[top1_idx])
+        conf = probs.top1conf.item()
+        
+        # Log top 3 predictions
+        top5_indices = probs.top5
+        top5_confs = probs.top5conf.tolist()
+        top3_str = ', '.join([f"{self._normalize_class_name(result_cls[0].names[idx])}:{top5_confs[i]:.1%}" for i, idx in enumerate(top5_indices[:3])])
+        self.logger.info(f'Classification result: {species_name} ({conf:.1%}) | Top 3: [{top3_str}]')
+        
+        return species_name, conf
 
     def detect(self, frame: np.ndarray, tracker_config: str, min_confidence: float) -> List[DetectionResult]:
         """
@@ -334,9 +358,11 @@ class TwoStageStrategy(DetectionStrategy):
             combined_conf = box['conf']  # Default to detector confidence
             
             if classified and box['track_id'] == classified['track_id']:
+                self.logger.debug(f'Classifying track {box["track_id"]} (detector conf: {box["conf"]:.1%})')
                 species_name, cls_conf = self._classify_crop(classified['crop'])
                 # Combined confidence: P(species) = P(is_bird) × P(species|is_bird)
                 combined_conf = box['conf'] * cls_conf
+                self.logger.info(f'Track {box["track_id"]}: {species_name} | det:{box["conf"]:.1%} × cls:{cls_conf:.1%} = {combined_conf:.1%}')
 
                 crop = classified['crop']
                 blur_variance = classified['blur_variance']
@@ -349,6 +375,9 @@ class TwoStageStrategy(DetectionStrategy):
                 blur_variance=blur_variance,
                 crop=crop
             ))
+        
+        if valid_boxes:
+            self.logger.debug(f'Frame summary: {len(valid_boxes)} valid detections, {1 if classified else 0} classified')
              
         return detection_results
 
