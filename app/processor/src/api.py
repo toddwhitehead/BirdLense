@@ -1,6 +1,7 @@
 import logging
 import requests
 import os
+import time
 
 
 class API():
@@ -36,11 +37,17 @@ class API():
                 self.logger.warning(
                     f"API request timeout (attempt {attempt + 1}/{self.max_retries}) for {url}: {e}"
                 )
+                if attempt < self.max_retries - 1:
+                    # Exponential backoff before retrying
+                    time.sleep(0.5 * (2 ** attempt))
             except requests.exceptions.ConnectionError as e:
                 last_exception = e
                 self.logger.warning(
                     f"API connection error (attempt {attempt + 1}/{self.max_retries}) for {url}: {e}"
                 )
+                if attempt < self.max_retries - 1:
+                    # Exponential backoff before retrying
+                    time.sleep(0.5 * (2 ** attempt))
             except requests.exceptions.RequestException as e:
                 # For other request exceptions, don't retry
                 self.logger.error(f"API request failed for {url}: {e}")

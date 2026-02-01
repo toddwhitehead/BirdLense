@@ -229,7 +229,9 @@ def main():
                     # no detections, delete folder
                     try:
                         shutil.rmtree(output_path)
-                    except OSError as e:
+                    except Exception as e:
+                        # Catch broad exception as shutil.rmtree can raise various errors
+                        # (OSError, PermissionError, FileNotFoundError, etc.)
                         logging.warning(f"Failed to delete empty recording folder {output_path}: {e}")
             except Exception as e:
                 logging.error(f"Error processing video results: {e}", exc_info=True)
