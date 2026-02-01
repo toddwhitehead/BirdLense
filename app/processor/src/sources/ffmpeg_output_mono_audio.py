@@ -3,6 +3,7 @@ import signal
 import subprocess
 import prctl
 import logging
+import time
 from picamera2.outputs import Output
 
 
@@ -65,7 +66,6 @@ class FfmpegOutputMonoAudio(Output):
             # If audio was requested, verify FFmpeg started successfully
             if self.audio:
                 # Give FFmpeg a moment to fail if audio device is unavailable
-                import time
                 time.sleep(0.1)
                 
                 # Check if process has already exited
