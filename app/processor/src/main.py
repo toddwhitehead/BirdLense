@@ -86,7 +86,7 @@ def main():
         logging.info(f"  Lens Position: {camera_config.get('lens_position', 'N/A')}")
     
     # Initialize audio processor if enabled
-    audio_enabled = app_config.get('processor.enable_audio_processing', True)
+    audio_enabled = app_config.get('processor.enable_audio_processing')
     audio_processor = None
     regional_species = ["Squirrel"]
     

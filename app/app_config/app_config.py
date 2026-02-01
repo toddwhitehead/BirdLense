@@ -1,5 +1,6 @@
 import yaml
 import os
+import logging
 
 
 class AppConfig:
@@ -44,6 +45,8 @@ class AppConfig:
 
     def apply_env_overrides(self, config):
         """Apply environment variable overrides to config."""
+        logger = logging.getLogger(__name__)
+        
         # Map environment variables to config keys
         env_mappings = {
             'ENABLE_AUDIO_PROCESSING': 'processor.enable_audio_processing',
@@ -53,12 +56,17 @@ class AppConfig:
             env_value = os.environ.get(env_var)
             if env_value is not None:
                 # Convert string to boolean for boolean settings
-                if env_value.lower() in ('true', '1', 'yes'):
+                lower_value = env_value.lower()
+                if lower_value in ('true', '1', 'yes'):
                     value = True
-                elif env_value.lower() in ('false', '0', 'no'):
+                elif lower_value in ('false', '0', 'no'):
                     value = False
                 else:
-                    value = env_value
+                    logger.warning(
+                        f"Invalid boolean value '{env_value}' for {env_var}. "
+                        f"Expected: true/false/1/0/yes/no. Ignoring override."
+                    )
+                    continue
                 
                 # Set the value in config
                 keys = config_key.split('.')
