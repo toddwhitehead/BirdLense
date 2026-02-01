@@ -117,7 +117,8 @@ def recording_worker(control_queue: multiprocessing.Queue, frame_queue: multipro
     config = picam2.create_video_configuration(
         main={"size": main_size, "format": "RGB888"},
         lores={"size": lores_size, "format": "YUV420"},
-        encode="main"
+        encode="main",
+        buffer_count=2  # Reduce buffer count to minimize memory usage
     )
     picam2.configure(config)
 
