@@ -166,10 +166,15 @@ def main():
     fps_tracker = FPSTracker()
 
     # Main motion detection loop
+    logging.info("Entering main motion detection loop - waiting for motion...")
+    motion_event_count = 0
     while True:
         try:
             if not motion_detector.detect():
+                logging.debug("Motion detector returned False, continuing to wait...")
                 continue
+            
+            motion_event_count += 1
             api.notify_motion()
 
             # Configure video sources
@@ -179,7 +184,7 @@ def main():
             media_source.start_recording(video_output)
 
             logging.info(
-                f'Motion detected. Processing started. Recording video and audio to "{video_output}"')
+                f'Motion event #{motion_event_count}: Starting video/audio recording to "{video_output}"')
             start_time = datetime.now(timezone.utc)
 
             # Video processing loop
