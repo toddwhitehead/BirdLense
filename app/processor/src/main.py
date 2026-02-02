@@ -1,3 +1,4 @@
+import warnings
 import threading
 import time
 from datetime import datetime, timezone
@@ -5,6 +6,9 @@ import argparse
 import logging
 import os
 import shutil
+
+# Suppress NumPy subnormal warning on ARM platforms (Raspberry Pi)
+warnings.filterwarnings("ignore", message="The value of the smallest subnormal")
 from frame_processor import FrameProcessor
 from detection_strategy import SingleStageStrategy, TwoStageStrategy
 from motion_detectors.pir import PIRMotionDetector
