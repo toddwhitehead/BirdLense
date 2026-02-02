@@ -11,7 +11,7 @@ services:
     volumes:
       - ./processor:/app
     # command: python src/main.py --fake-motion=true data/samples/videos/cardinal.mp4
-    command: python src/main.py --fake-motion=true
+    command: python src/main.py #--fake-motion=true
 
   web:
     build:
