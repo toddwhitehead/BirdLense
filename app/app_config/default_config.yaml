@@ -29,11 +29,16 @@ processor:
 
   save_images: false # save frames with detectiond to disk. Testing only
 
-  detection_strategy: "two_stage" # Options: "single_stage", "two_stage"
+  detection_strategy: "two_stage" # Options: "single_stage", "two_stage", "global_two_stage"
+  # Note: Use "global_two_stage" for non-North American birds (Australian, Asian, European, etc.)
+  #       This uses iNaturalist model with 10,000+ species including cockatoos, king parrots, etc.
   models:
     single_stage: "models/detection/nabirds_yolov8n_ncnn_model"
     binary: "models/detection/nabirds_yolo11n_binary/weights/best_ncnn_model"
     classifier: "models/classification/nabirds_yolo11n_cls/weights/best_ncnn_model"
+    # iNaturalist classifier for global bird species (requires: pip install birder)
+    # Options: "rope_vit_reg4_b14_capi-inat21" (more accurate) or "rope_vit_reg4_b14_capi-inat21-224px" (faster)
+    inat_classifier: "rope_vit_reg4_b14_capi-inat21-224px"
 
 # AI settings for LLM verification and daily summaries
 ai:
