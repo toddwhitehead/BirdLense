@@ -10,7 +10,7 @@ import shutil
 # Suppress NumPy subnormal warning on ARM platforms (Raspberry Pi)
 warnings.filterwarnings("ignore", message="The value of the smallest subnormal")
 from frame_processor import FrameProcessor
-from detection_strategy import SingleStageStrategy, TwoStageStrategy, GlobalTwoStageStrategy
+from detection_strategy import SingleStageStrategy, TwoStageStrategy
 from motion_detectors.pir import PIRMotionDetector
 from motion_detectors.fake import FakeMotionDetector
 from decision_maker import DecisionMaker
@@ -139,25 +139,13 @@ def main():
 
     # Configure Detection Strategy
     strategy_type = app_config.get('processor.detection_strategy', 'single_stage')
-    if strategy_type == 'global_two_stage':
-        # Global strategy: YOLO binary detector + iNaturalist classifier (10,000+ species)
-        # Supports Australian birds (cockatoos, king parrots, etc.) and other non-NABirds species
-        detection_strategy = GlobalTwoStageStrategy(
-            binary_model_path=app_config.get('processor.models.binary'),
-            inat_model_name=app_config.get('processor.models.inat_classifier', 'rope_vit_reg4_b14_capi-inat21-224px'),
-            regional_species=regional_species
-        )
-        logging.info("Detection Strategy: GLOBAL_TWO_STAGE (iNaturalist - 10,000+ species)")
-        logging.info(f"  Binary Model: {app_config.get('processor.models.binary')}")
-        logging.info(f"  iNat Classifier: {app_config.get('processor.models.inat_classifier', 'rope_vit_reg4_b14_capi-inat21-224px')}")
-        logging.info("  Supports: Australian birds, Asian birds, European birds, etc.")
-    elif strategy_type == 'two_stage':
+    if strategy_type == 'two_stage':
         detection_strategy = TwoStageStrategy(
             binary_model_path=app_config.get('processor.models.binary'),
             classifier_model_path=app_config.get('processor.models.classifier'),
             regional_species=regional_species
         )
-        logging.info("Detection Strategy: TWO_STAGE (NABirds - North American species only)")
+        logging.info("Detection Strategy: TWO_STAGE")
         logging.info(f"  Binary Model: {app_config.get('processor.models.binary')}")
         logging.info(f"  Classifier Model: {app_config.get('processor.models.classifier')}")
     else:
