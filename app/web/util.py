@@ -215,13 +215,16 @@ def filter_feeder_species(species_names):
     """
     Filter out species that are unlikely to visit bird feeders based on their family categories.
     Uses configuration to determine which bird families to include.
+    
+    If species_names is empty/None, returns ALL species from included families (useful when
+    audio processing is disabled and we need to enable all configured feeder species).
     """
     # Get included families from config
     included_families = app_config.get('processor.included_bird_families', [])
 
-    # Early return if no inclusion
+    # Early return if no inclusion filter configured
     if not included_families:
-        return species_names
+        return species_names if species_names else []
 
     # Fetch all species in one query
     all_species = Species.query.all()
@@ -257,5 +260,9 @@ def filter_feeder_species(species_names):
             add_descendants(family)
             included_species.add(family)
 
-    # Filter out included species
+    # If no input species provided, return ALL species from included families
+    if not species_names:
+        return list(included_species)
+
+    # Filter input species to only those in included families
     return [name for name in species_names if name in included_species]

@@ -102,7 +102,7 @@ def main():
     # Initialize audio processor if enabled
     audio_enabled = app_config.get('processor.enable_audio_processing')
     audio_processor = None
-    regional_species = ["Squirrel"]
+    regional_species = []  # Empty list signals "use all species from included_bird_families config"
     
     if audio_enabled:
         audio_processor = AudioProcessor(lat=app_config.get(
